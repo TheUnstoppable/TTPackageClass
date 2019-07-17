@@ -17,18 +17,33 @@ using System.Threading.Tasks;
 
 namespace Package
 {
-    //Last compiled at 2019/07/17 Wednesday 12:21:02 GMT+03.
-    public abstract class TTPackageClass
+    public enum ChunkType
+    {
+        Head = 0x48454144,
+        Data = 0x44415441,
+        File = 0x46494C45
+    }
+
+    public enum PackageType
+    {
+        Secret = 0,
+        Hidden = 1,
+        Normal = 2
+    }
+
+    //Last compiled at 2019/07/17 Wednesday 18:56:00 GMT+03.
+    public abstract class TPIPackageClass
     {
         public string PackageID = "00000000";
         public string PackageName = "Unknown";
         public string PackageVer = "N/A";
         public string PackageOwner = "Unknown";
         public int FileCount = 0;
+        public PackageType Type = PackageType.Normal;
         public List<TTFileClass> Files = new List<TTFileClass>();
     }
 
-    public class TTPackage : TTPackageClass
+    public class TPIClass : TPIPackageClass
     {
         private static bool ConditionsOK(Stream str)
         {
@@ -38,7 +53,7 @@ namespace Package
                 return false;
         }
 
-        public static TTPackageClass FromFile(string Location)
+        public static TPIPackageClass FromFile(string Location)
         {
             if (!File.Exists(Location))
                 throw new FileNotFoundException("TPI file could not be found."); //Boink
@@ -46,63 +61,48 @@ namespace Package
             byte[] TPI = File.ReadAllBytes(Location); //Read whole TPI file.
             using (Stream Bytes = new MemoryStream(TPI))
             {
-                TTPackageClass Pack = new TTPackage();
+                TPIClass Pack = new TPIClass();
                 while (ConditionsOK(Bytes))
                 {
-                    string Header = Expressions.GetText(Bytes, 0, 4).ToUpper();
-                    if (Header == "DAEH")
+                    uint Header = Expressions.GetUNumber(Expressions.GetBytes(Bytes, 0, 4));
+                    if (Header == (uint)ChunkType.Head)
                     {
-                        //Processing the HEAD.
-                        int Next = Expressions.GetByte(Bytes, 0);
-                        byte[] Data = Expressions.GetBytes(Bytes, 0, Next);
-                        Data = Data.SubArray(3, Data.Length - 3);
-                        Pack.PackageID = Expressions.GetCRCID(Data.SubArray(0, 4));
-                        Pack.FileCount = Data[Data.Length - 1];
+                        //Processing the HEAD. Reading first 4 bytes to find out length.
+                        int Next = Expressions.GetNumber(Expressions.GetBytes(Bytes, 0, 4));
 
-                        //We're done with HEAD, now let's read next 3 null characters.
-                        Expressions.GetBytes(Bytes, 0, 3);
+                        //Buaa getting all bytes now.
+                        byte[] Data = Expressions.GetBytes(Bytes, 0, Next);
+                        Pack.PackageID = Expressions.GetCRCID(Data.SubArray(0, 4));
+                        Pack.FileCount = Expressions.GetNumber(Data.SubArray(4, Data.Length - 4));
 
                         //Now, we should have DATA. Ending this if else.
                     }
-                    else if (Header == "ATAD")
+                    else if (Header == (uint)ChunkType.Data)
                     {
                         //Processing the DATA.
-                        int Next = Expressions.GetByte(Bytes, 0);
-                        int Current = 0;
-                        Expressions.GetBytes(Bytes, 0, 3); //Wasting the NULs.
+                        int Next = Expressions.GetNumber(Expressions.GetBytes(Bytes, 0, 4));
 
                         //Fun part ;)
-                        int NameLen = Expressions.GetByte(Bytes, 0) + 1;
-                        Pack.PackageName = Expressions.GetText(Bytes, 0, NameLen).Substring(1, NameLen - 1);
-                        int VerLen = Expressions.GetByte(Bytes, 0) + 1;
-                        Pack.PackageVer = Expressions.GetText(Bytes, 0, VerLen).Substring(1, VerLen - 1);
-                        int OwnerLen = Expressions.GetByte(Bytes, 0) + 1;
-                        Pack.PackageOwner = Expressions.GetText(Bytes, 0, OwnerLen).Substring(1, OwnerLen - 1);
+                        int NameLen = Expressions.GetUNumber16(Expressions.GetBytes(Bytes, 0, 2));
+                        Pack.PackageName = Expressions.GetText(Bytes, 0, NameLen);
+                        int VerLen = Expressions.GetUNumber16(Expressions.GetBytes(Bytes, 0, 2));
+                        Pack.PackageVer = Expressions.GetText(Bytes, 0, VerLen);
+                        int OwnerLen = Expressions.GetUNumber16(Expressions.GetBytes(Bytes, 0, 2));
+                        Pack.PackageOwner = Expressions.GetText(Bytes, 0, OwnerLen);
 
-                        //Unfortunately, I don't know what that next byte are here for. So, I'll discard it.
-                        Expressions.GetBytes(Bytes, 0, 1);
-
-                        //We're done with DATA, now let's read next 3 null characters.
-                        Expressions.GetBytes(Bytes, 0, 3);
+                        Pack.Type = (PackageType)Expressions.GetNumber(Expressions.GetBytes(Bytes, 0, 4));
 
                         //Now, we should have FILEs. Ending this if else and letting while continue it's work.
                     }
-                    else if(Header == "ELIF")
+                    else if(Header == (uint)ChunkType.File)
                     { 
                         TTFileClass File = new TTFileClass();
-                        File.FullNameLength = Expressions.GetByte(Bytes, 0) - 1;
-                        Expressions.GetBytes(Bytes, 0, 3); // 3 NULs...
+                        int Next = Expressions.GetNumber(Expressions.GetBytes(Bytes, 0, 4));
                         File.CRC = Expressions.GetCRCID(Expressions.GetBytes(Bytes, 0, 4));
+                        File.FileSize = Expressions.GetUNumber(Expressions.GetBytes(Bytes, 0, 4));
 
-                        //Unfortunately, I don't know what these next 2 bytes are here for. So, I'll discarding them.
-                        //Note: A friend says it's file size. But multiplation, addition and XOR did not worked to get original file sizes.
-                        Expressions.GetBytes(Bytes, 0, 2);
-
-                        //Skipping 2 NULs...
-                        Expressions.GetBytes(Bytes, 0, 2);
-
-                        File.OriginalNameLength = Expressions.GetByte(Bytes, 0);
-                        File.FileName = Expressions.GetText(Bytes, 0, File.OriginalNameLength + 1).Substring(1, File.OriginalNameLength);
+                        File.OriginalNameLength = Expressions.GetUNumber16(Expressions.GetBytes(Bytes, 0, 2));
+                        File.FileName = Expressions.GetText(Bytes, 0, File.OriginalNameLength);
 
                         //No NULs after file name, so let while loop read next header if Stream not ended.
                         //Let's add file to collection...
@@ -124,8 +124,9 @@ namespace Package
     {
         public string FileName;
         public string CRC;
-        public int OriginalNameLength;
+        public ushort OriginalNameLength;
         public int FullNameLength;
+        public uint FileSize;
 
         public string FullName { get { return CRC + "." + FileName; } }
     }
@@ -175,11 +176,20 @@ namespace Package
                 throw new ArgumentException("Invalid Package ID or formatting problem.");
 
             string Return = "";
-            Return += Bytes[3].ToString("X");
-            Return += Bytes[2].ToString("X");
-            Return += Bytes[1].ToString("X");
-            Return += Bytes[0].ToString("X");
+            Return += ByteToHex(Bytes[3]);
+            Return += ByteToHex(Bytes[2]);
+            Return += ByteToHex(Bytes[1]);
+            Return += ByteToHex(Bytes[0]);
             return Return;
+        }
+
+        //Converting byte to hex for CRC and Hash generation (simply, appending 0)
+        private static string ByteToHex(byte b)
+        {
+            string h = b.ToString("X");
+            if(h.Length < 2)
+                h = "0" + h;
+            return h;
         }
 
         //An extension for arrays like Substring. Taken from https://stackoverflow.com/questions/943635/getting-a-sub-array-from-an-existing-array.
@@ -188,6 +198,56 @@ namespace Package
             T[] result = new T[length];
             Array.Copy(data, index, result, 0, length);
             return result;
+        }
+
+        //Getting Int32 of byte array.
+        public static int GetNumber(byte[] Bytes)
+        {
+            return BitConverter.ToInt32(Bytes, 0);
+        }
+
+        //Getting UInt32 of byte array.
+        public static uint GetUNumber(byte[] Bytes)
+        {
+            return BitConverter.ToUInt32(Bytes, 0);
+        }
+
+        //Getting UInt16 of byte array.
+        public static ushort GetUNumber16(byte[] Bytes)
+        {
+            return BitConverter.ToUInt16(Bytes, 0);
+        }
+
+
+        //Array of size sufixes.
+        private static readonly string[] SizeSuffixes =
+                   { "bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
+
+        //Getting file size from bytes count.
+        public static string GetFileSize(Int64 value, int decimalPlaces = 2)
+        {
+            if (decimalPlaces < 0) { throw new ArgumentOutOfRangeException("decimalPlaces"); }
+            if (value < 0) { return "-" + GetFileSize(-value); }
+            if (value == 0) { return string.Format("{0:n" + decimalPlaces + "} bytes", 0); }
+
+            // mag is 0 for bytes, 1 for KB, 2, for MB, etc.
+            int mag = (int)Math.Log(value, 1024);
+
+            // 1L << (mag * 10) == 2 ^ (10 * mag) 
+            // [i.e. the number of bytes in the unit corresponding to mag]
+            decimal adjustedSize = (decimal)value / (1L << (mag * 10));
+
+            // make adjustment when the value is large enough that
+            // it would round up to 1000 or more
+            if (Math.Round(adjustedSize, decimalPlaces) >= 1000)
+            {
+                mag += 1;
+                adjustedSize /= 1024;
+            }
+
+            return string.Format("{0:n" + decimalPlaces + "} {1}",
+                adjustedSize,
+                SizeSuffixes[mag]);
         }
     }
 }
