@@ -85,7 +85,7 @@ namespace Package
                         //We're done with DATA, now let's read next 3 null characters.
                         Expressions.GetBytes(Bytes, 0, 3);
 
-                        //Now, we should have FILE. Ending this if else and continuing with a while loop.
+                        //Now, we should have FILEs. Ending this if else and letting while continue it's work.
                     }
                     else if(Header == "ELIF")
                     { 
@@ -104,8 +104,8 @@ namespace Package
                         File.OriginalNameLength = Expressions.GetByte(Bytes, 0);
                         File.FileName = Expressions.GetText(Bytes, 0, File.OriginalNameLength + 1).Substring(1, File.OriginalNameLength);
 
-                        //No NULs after file name, so let while loop read next FILE is exist or Stream not ended.
-                        //Before ending while, let's add file to collection...
+                        //No NULs after file name, so let while loop read next header if Stream not ended.
+                        //Let's add file to collection...
                         Pack.Files.Add(File);
                     }
                     else
