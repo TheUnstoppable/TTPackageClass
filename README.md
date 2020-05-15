@@ -5,7 +5,7 @@ Example Usages:
 
 - To create an instance of `TTFSDataClass` and clone from a remote TTFS host:
 ```csharp
-Uri url = new Uri("http://path.to/your-ttfs")
+Uri url = new Uri("http://path.to/your-ttfs");
 TTFSDataClass Data = TTFSClass.FromTTFS(url);
 ```
 
