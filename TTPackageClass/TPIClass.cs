@@ -126,7 +126,7 @@ namespace TTPackageClass
             {
                 try
                 {
-                    TPIPackageClass Pack = new TPIPackageClass();
+                    TPIPackageClass Pack = Expressions.CreateTPIPackage();
                     while (ConditionsOK(Bytes))
                     {
                         uint Header = Expressions.GetUNumber(Expressions.GetBytes(Bytes, 0, 4));
@@ -163,7 +163,7 @@ namespace TTPackageClass
                         }
                         else if (Header == (uint)ChunkType.File)
                         {
-                            TTFileClass File = new TTFileClass();
+                            TTFileClass File = Expressions.CreateTTFile();
                             int Next = Expressions.GetNumber(Expressions.GetBytes(Bytes, 0, 4));
                             File.CRC = Expressions.GetCRCID(Expressions.GetBytes(Bytes, 0, 4));
                             File.FileSize = Expressions.GetUNumber(Expressions.GetBytes(Bytes, 0, 4));

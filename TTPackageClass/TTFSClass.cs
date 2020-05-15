@@ -120,7 +120,7 @@ namespace TTPackageClass
         {
             try
             {
-                TTFSDataClass Class = new TTFSDataClass();
+                TTFSDataClass Class = Expressions.CreateTTFSData();
 
                 using (Stream Bytes = new MemoryStream(Stream.ToArray()))
                 {
