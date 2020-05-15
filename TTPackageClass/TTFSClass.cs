@@ -135,7 +135,7 @@ namespace TTPackageClass
                             //So we're ignoring it as it still works without it and it messes up the stuff.
 
                             var ABytes = Expressions.GetBytes(Bytes, 0, 4);
-                            ABytes[3] = 0x00;
+                            ABytes[3] = (byte)0x00;
                             uint Next = Expressions.GetUNumber(ABytes);
 
                             //The thing we just read must be a whole TPI now.
