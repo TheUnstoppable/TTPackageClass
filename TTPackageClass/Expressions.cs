@@ -165,5 +165,24 @@ namespace TTPackageClass
                 Return += (char)b;
             return Return;
         }
+
+        public static void Write(this MemoryStream Stream, string Str)
+        {
+            byte[] b = new byte[Str.Length];
+            for (int i = 0; i < Str.Length; ++i)
+                b[i] = (byte)Str[i];
+
+            Stream.Write(b, 0, b.Length);
+        }
+
+        public static void Write(this MemoryStream Stream, byte[] arr)
+        {
+            Stream.Write(arr, 0, arr.Length);
+        }
+
+        public static void Write(this MemoryStream Stream, byte b)
+        {
+            Stream.Write(new byte[] { b }, 0, 1);
+        }
     }
 }

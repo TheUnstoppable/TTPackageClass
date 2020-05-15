@@ -10,6 +10,7 @@
 
 using System;
 using System.IO;
+using System.Text;
 
 namespace TTPackageClass
 {
@@ -44,44 +45,44 @@ namespace TTPackageClass
             {
                 using (MemoryStream ms = new MemoryStream())
                 {
-                    using (StreamWriter Writer = new StreamWriter(ms))
+                    ms.Write("DAEH"); //Starting with HEAD because why not.
+                    ms.Write(BitConverter.GetBytes(8)); //Length of HEAD.
+                    for (int i = 6; i >= 0; i -= 2)
+                        ms.Write((byte)Convert.ToInt32(TPI.PackageID.Substring(i, 2), 16)); //Writing CRC.
+                    ms.Write(BitConverter.GetBytes(TPI.FileCount));
+
+                    ms.Write("ATAD"); //DATA now.
+                    string Data = string.Empty;
+
+                    Data += Expressions.Flatten(BitConverter.GetBytes((ushort)TPI.PackageName.Length)); //Write package name length + content.
+                    Data += TPI.PackageName;
+                    Data += Expressions.Flatten(BitConverter.GetBytes((ushort)TPI.PackageVer.Length)); //Write package version length + content.
+                    Data += TPI.PackageVer;
+                    Data += Expressions.Flatten(BitConverter.GetBytes((ushort)TPI.PackageOwner.Length)); //Write package owner length + content.
+                    Data += TPI.PackageOwner;
+                    Data += Expressions.Flatten(BitConverter.GetBytes((int)TPI.Type));
+
+                    ms.Write(BitConverter.GetBytes(Data.Length));
+                    ms.Write(Data);
+
+                    foreach (TTFileClass TTFile in TPI.Files)
                     {
-                        Writer.Write("DAEH"); //Starting with HEAD because why not.
-                        Writer.Write(Expressions.Flatten(BitConverter.GetBytes(8))); //Length of HEAD.
-                        for (int i = 0; i <= 6; i += 2)
-                            Writer.Write(Expressions.Flatten(BitConverter.GetBytes(Convert.ToInt32(TPI.PackageID.Substring(i, 2), 16)))); //Writing CRC.
-                        Writer.Write(Expressions.Flatten(BitConverter.GetBytes(TPI.FileCount)));
+                        ms.Write("ELIF");
+                        string File = string.Empty;
+                        for (int i = 6; i >= 0; i -= 2)
+                            File += (char)((byte)Convert.ToInt32(TTFile.CRC.Substring(i, 2), 16)); //Writing CRC.
 
-                        Writer.Write("ATAD"); //DATA now.
-                        string Data = string.Empty;
+                        File += Expressions.Flatten(BitConverter.GetBytes(TTFile.FileSize));
+                        File += Expressions.Flatten(BitConverter.GetBytes(TTFile.OriginalNameLength));
+                        File += TTFile.FileName;
 
-                        Data += Expressions.Flatten(BitConverter.GetBytes((ushort)TPI.PackageName.Length)); //Write package name length + content.
-                        Data += TPI.PackageName;
-                        Data += Expressions.Flatten(BitConverter.GetBytes((ushort)TPI.PackageVer.Length)); //Write package version length + content.
-                        Data += TPI.PackageVer;
-                        Data += Expressions.Flatten(BitConverter.GetBytes((ushort)TPI.PackageOwner.Length)); //Write package owner length + content.
-                        Data += TPI.PackageOwner;
-                        Data += Expressions.Flatten(BitConverter.GetBytes((int)TPI.Type));
-
-                        Writer.Write(Expressions.Flatten(BitConverter.GetBytes(Data.Length)));
-                        Writer.Write(Data);
-
-                        foreach (TTFileClass TTFile in TPI.Files)
-                        {
-                            string File = string.Empty;
-                            for (int i = 0; i <= 6; i += 2)
-                                File += Expressions.Flatten(BitConverter.GetBytes(Convert.ToInt32(TTFile.CRC.Substring(i, 2), 16))); //Writing CRC.
-
-                            File += Expressions.Flatten(BitConverter.GetBytes(TTFile.FileSize));
-                            File += Expressions.Flatten(BitConverter.GetBytes(TTFile.OriginalNameLength));
-                            File += TTFile.FileName;
-
-                            Writer.Write(Expressions.Flatten(BitConverter.GetBytes(File.Length)));
-                            Writer.Write(File);
-                        }
+                        ms.Write(BitConverter.GetBytes(File.Length));
+                        ms.Write(File);
                     }
 
-                    return ms;
+                    MemoryStream Str = new MemoryStream();
+                    ms.WriteTo(Str);
+                    return Str;
                 }
             }
             catch(Exception ex)

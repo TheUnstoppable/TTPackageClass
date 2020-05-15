@@ -11,6 +11,7 @@
 using System;
 using System.IO;
 using System.Net;
+using System.Text;
 
 namespace TTPackageClass
 {
@@ -39,20 +40,27 @@ namespace TTPackageClass
             {
                 using (MemoryStream ms = new MemoryStream())
                 {
-                    using (StreamWriter Writer = new StreamWriter(ms))
+                    foreach (TPIPackageClass TPI in Dat.Packages)
                     {
-                        foreach (TPIPackageClass TPI in Dat.Packages)
+                        using (var Stream = TPIClass.Save(TPI))
                         {
-                            using (var Stream = TPIClass.Save(TPI))
+                            ms.Write("GKCP");
+                            long len = Stream.Length & 0x7FFFFFFF;
+                            if ((len & 0x80000000) != 0)
                             {
-                                Writer.Write("GKCP");
-                                Writer.Write(Expressions.Flatten(BitConverter.GetBytes((uint)Stream.Length)));
-                                Stream.CopyTo(ms);
+                                len |= 0x80000000;
                             }
+                            var barr = BitConverter.GetBytes((uint)len);
+                            Array.Resize(ref barr, 3);
+                            ms.Write(barr);
+                            ms.Write(Encoding.Default.GetBytes("€"));
+                            Stream.WriteTo(ms);
                         }
                     }
 
-                    return ms;
+                    MemoryStream Str = new MemoryStream();
+                    ms.WriteTo(Str);
+                    return Str;
                 }
             }
             catch(Exception ex)
